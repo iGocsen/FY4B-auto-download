@@ -41,16 +41,15 @@ _SCRIPT_DIR = Path(__file__).parent
 with open(_CFG_PATH, "r", encoding="utf-8") as _f:
     C = json.load(_f)
 
+
 def _resolve_path(raw_path, base_dir=None):
     """智能路径解析：绝对路径直接使用，相对路径以 base_dir 为基准解析，~ 自动展开。"""
     if base_dir is None:
         base_dir = _SCRIPT_DIR
-    # 接受 str 或 Path 对象
     if isinstance(raw_path, Path):
         p_raw = raw_path
     else:
         p_raw = Path(str(raw_path).strip())
-    # 展开 ~
     p_raw = p_raw.expanduser()
     if p_raw.is_absolute():
         return p_raw.resolve()
@@ -64,15 +63,6 @@ TXT_DIR     = _resolve_path(C["路径"]["txt文件目录"])
 EXCEL_FILE  = _resolve_path(C["路径"]["Excel文件"])
 IDM_PATH    = _resolve_path(C["路径"]["IDM程序"])
 
-# Excel 结构
-_XL_SHEET     = C["Excel"]["工作表索引"]
-_XL_B162      = C["Excel"]["B162单元格"]
-_XL_B2        = C["Excel"]["B2单元格"]
-_XL_B1        = C["Excel"]["B1单元格"]
-_XL_LINK_COL  = C["Excel"]["链接列"]
-_XL_ROW_START = C["Excel"]["链接起始行"]
-_XL_ROW_END   = C["Excel"]["链接结束行"]
-
 # 下载参数
 _DL_TIMEOUT   = C["下载"]["超时秒数"]
 _DL_PQL_EVERY = C["下载"]["每N个请求暂停"]
@@ -81,36 +71,15 @@ _DL_PROGRESS  = C["下载"]["进度汇报间隔"]
 _DL_UA        = C["下载"]["UserAgent"]
 _DL_EXTS      = set(C["下载"]["图片后缀"])
 
-# txt 文件
-TXT_PREFIX  = C["txt文件"]["前缀"]
-TXT_DATEFMT = C["txt文件"]["日期格式"]
-
 
 # ===================== 辅助函数 =====================
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
 
-def ole_to_datetime(value):
-    """Excel OLE 日期 / datetime → Python datetime（统一去除时区信息）"""
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        # 去除时区信息，避免与 offset-naive 的 datetime.now() 比较报错
-        return value.replace(tzinfo=None)
-    if isinstance(value, (int, float)):
-        return datetime(1899, 12, 30) + timedelta(days=float(value))
-    return None
-
-
-def format_txt_name(dt):
-    """datetime → 截止T：2026年04月28日0907.txt"""
-    return f"{TXT_PREFIX}{dt.strftime(TXT_DATEFMT)}.txt"
-
-
 def parse_txt_datetime(filename):
     """截止T：YYYY年MM月DD日HHMM.txt → datetime"""
-    pat = rf"{re.escape(TXT_PREFIX)}(\d{{4}})年(\d{{2}})月(\d{{2}})日(\d{{2}})(\d{{2}})\.txt$"
+    pat = rf"{re.escape(create_download_links.TXT_PREFIX)}(\d{{4}})年(\d{{2}})月(\d{{2}})日(\d{{2}})(\d{{2}})\.txt$"
     m = re.search(pat, filename)
     if m:
         y, mo, d, h, mi = m.groups()
@@ -128,12 +97,10 @@ def move_staging_to_target():
     """将 STAGING_DIR 中所有图片移动到 TARGET_DIR"""
     if not STAGING_DIR.exists():
         return 0
-    moved = 0
-    skipped = 0
+    moved = skipped = 0
     for f in STAGING_DIR.iterdir():
         if f.suffix.lower() not in _DL_EXTS:
             continue
-        # 确保目标目录存在
         TARGET_DIR.mkdir(parents=True, exist_ok=True)
         dest = TARGET_DIR / f.name
         try:
@@ -152,87 +119,6 @@ def move_staging_to_target():
     if moved or skipped:
         log(f"[MOVE] 移动 {moved} 个，跳过 {skipped} 个 → {TARGET_DIR}")
     return moved
-
-
-# ===================== Excel 操作 =====================
-def update_excel_and_generate_txt():
-    """循环更新 Excel (B162值粘贴→B2, 重算) 直到 B1 >= 当前时间，然后生成新的截止T.txt。返回 Path 或 None"""
-    log("[EXCEL] 启动更新流程...")
-    import win32com.client
-    excel = wb = ws = None
-    try:
-        excel = win32com.client.Dispatch("Excel.Application")
-        excel.Visible = False
-        excel.DisplayAlerts = False
-
-        wb = excel.Workbooks.Open(str(EXCEL_FILE))
-        ws = wb.Worksheets(_XL_SHEET)
-        excel.Calculate()
-
-        now = datetime.now()
-        iteration = 0
-        max_iter = 50  # 安全上限，防止无限循环
-        cutoff = now - timedelta(hours=12)  # 停止条件：B1 >= now-12h
-
-        while True:
-            iteration += 1
-            if iteration > max_iter:
-                log(f"[WARN] 已循环 {max_iter} 次仍未满足条件，强制退出")
-                break
-
-            b162_val = ws.Range(_XL_B162).Value
-            if b162_val is None:
-                log(f"[FAIL] {_XL_B162} 为空，无法更新")
-                return None
-
-            # 值粘贴 B162 → B2
-            ws.Range(_XL_B2).Value = b162_val
-            excel.Calculate()
-
-            new_b1 = ole_to_datetime(ws.Range(_XL_B1).Value)
-            if not new_b1:
-                log("[FAIL] B1 值无法解析")
-                return None
-
-            log(f"[EXCEL] 第{iteration}次: B162→B2, B1={new_b1.strftime('%Y-%m-%d %H:%M')}")
-
-            if new_b1 >= cutoff:
-                log(f"[EXCEL] B1 >= {cutoff.strftime('%Y-%m-%d %H:%M')}，满足条件，停止循环")
-                break
-            else:
-                log(f"[EXCEL] B1 < {cutoff.strftime('%Y-%m-%d %H:%M')}，继续循环...")
-
-        # 收集链接
-        links = []
-        for row in range(_XL_ROW_START, _XL_ROW_END + 1):
-            v = ws.Range(f"{_XL_LINK_COL}{row}").Value
-            if v:
-                links.append(str(v))
-
-        if not new_b1 or not links:
-            log("[FAIL] 更新后 B1 或链接为空")
-            return None
-
-        wb.Save()
-        log(f"[EXCEL] 更新完成，新过期时间: {new_b1.strftime('%Y-%m-%d %H:%M')} (循环{iteration}次)")
-
-        new_txt_path = TXT_DIR / format_txt_name(new_b1)
-        with open(new_txt_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(links))
-        log(f"[OK] 新文件: {new_txt_path.name} ({len(links)} 个链接)")
-
-        return new_txt_path
-
-    except Exception as e:
-        log(f"[FAIL] Excel 更新失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
-    finally:
-        if wb:
-            wb.Close(SaveChanges=False)
-        if excel:
-            excel.Quit()
 
 
 # ===================== 下载 =====================
@@ -287,10 +173,9 @@ def main():
 
     now = datetime.now()
     need_update = False
-
-    # 2. 根据文件存在情况决定行为
     just_generated = False  # 标记是否刚生成了新 txt
 
+    # 2. 根据文件存在情况决定行为
     if not excel_ok and not txt_ok:
         # 场景3：都不存在 → 生成新 txt
         log("[GEN] Excel 和 txt 均不存在，根据模板生成新 txt")
@@ -302,12 +187,12 @@ def main():
         except Exception as e:
             log(f"[FAIL] 生成 txt 失败: {e}")
             return False
-    
+
     elif not excel_ok and txt_ok:
         # 场景4：txt 存在、Excel 不存在 → 保留 txt 当作当前批次
         log(f"[KEEP] txt 存在但 Excel 不存在，保留当前 txt 作为当前批次")
         log(f"[INFO] 文件: {txt_path.name}")
-    
+
     # 3. 判断是否需要更新（刚生成的 txt 不需要再更新）
     if just_generated:
         log("[INFO] 刚生成的新 txt，直接下载当前批次")
@@ -342,10 +227,13 @@ def main():
         old_txt_path = txt_path
 
         if excel_ok:
-            # Excel 存在 → 用 Excel 更新
-            new_txt_path = update_excel_and_generate_txt()
+            # Excel 存在 → 调用 create_download_links 更新 Excel 并生成新 txt
+            new_txt_path = create_download_links.update_excel_and_generate_txt(
+                excel_file=EXCEL_FILE,
+                cutoff_hours=12
+            )
         else:
-            # Excel 不存在 → 用模板生成
+            # Excel 不存在 → 用模板生成新 txt
             log("[GEN] Excel 不存在，用模板生成新 txt")
             try:
                 new_txt_path = create_download_links.generate_and_save_txt()
@@ -353,7 +241,7 @@ def main():
             except Exception as e:
                 log(f"[FAIL] 生成 txt 失败: {e}")
                 return False
-        
+
         if not new_txt_path:
             log("[FAIL] 更新失败，退出")
             return False
