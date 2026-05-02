@@ -1,0 +1,8 @@
+https://image.nmc.cn/product/YYYY/MM/DD/WXBL/SEVP_NSMC_WXBL_FY4B_ETCC_ACHN_LNO_PY_YYYYMMDDhhmm00000.JPG
+
+说明：
+YYYY年份
+MM月份
+DD日期
+hh时
+mm一刻钟
