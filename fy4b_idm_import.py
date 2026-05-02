@@ -4,9 +4,13 @@
 FY4B 云图 IDM 自动导入脚本
 
 功能：
-1. 检查待下载文件中的日期时间是否已过期
-2. 调用 IDM 导入下载任务
-3. 使用 Excel COM 接口更新文件并获取计算后的值
+1. 检查 Excel/txt 是否存在
+   - 都不存在 → 生成新 txt（根据模板）
+   - txt 存在、Excel 不存在 → 保留 txt 当作当前批次
+   - Excel 存在 → 正常流程
+2. 检查待下载文件中的日期时间是否已过期
+3. 调用 IDM 导入下载任务
+4. 使用 Excel COM 接口更新文件并获取计算后的值
 
 所有路径、软件位置、参数均从 fy4b_config.json 读取。
 """
@@ -18,17 +22,38 @@ import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 
+# 导入检查器和链接生成器
+import check_excel
+import create_download_links
+
 
 # ===================== 加载配置 =====================
 _CFG_PATH = Path(__file__).parent / "fy4b_config.json"
+_SCRIPT_DIR = Path(__file__).parent
 
 with open(_CFG_PATH, "r", encoding="utf-8") as _f:
     C = json.load(_f)
 
-# 路径
-TXT_DIR    = Path(C["路径"]["txt文件目录"])
-EXCEL_FILE = Path(C["路径"]["Excel文件"])
-IDM_PATH   = Path(C["路径"]["IDM程序"])
+def _resolve_path(raw_path, base_dir=None):
+    """智能路径解析：绝对路径直接使用，相对路径以 base_dir 为基准解析，~ 自动展开。"""
+    if base_dir is None:
+        base_dir = _SCRIPT_DIR
+    # 接受 str 或 Path 对象
+    if isinstance(raw_path, Path):
+        p_raw = raw_path
+    else:
+        p_raw = Path(str(raw_path).strip())
+    # 展开 ~
+    p_raw = p_raw.expanduser()
+    if p_raw.is_absolute():
+        return p_raw.resolve()
+    return (base_dir / p_raw).resolve()
+
+
+# 路径（所有路径都走智能解析）
+TXT_DIR    = _resolve_path(C["路径"]["txt文件目录"])
+EXCEL_FILE = _resolve_path(C["路径"]["Excel文件"])
+IDM_PATH   = _resolve_path(C["路径"]["IDM程序"])
 
 # Excel 结构
 _XL_SHEET     = C["Excel"]["工作表索引"]
@@ -68,21 +93,20 @@ def ole_to_datetime(value):
     return None
 
 
-def extract_datetime_from_filename(filename):
-    """从文件名提取日期时间，如 截止T：2026年04月28日0907.txt"""
-    pat = rf"{re.escape(TXT_PREFIX)}(\d{{4}})年(\d{{2}})月(\d{{2}})日(\d{{2}})(\d{{2}})\.txt"
+def parse_txt_datetime(filename: str) -> datetime | None:
+    """从截止T：YYYY年MM月DD日hhmm.txt 提取 datetime"""
+    pat = rf"{re.escape(TXT_PREFIX)}(\d{{4}})年(\d{{2}})月(\d{{2}})日(\d{{2}})(\d{{2}})\.txt$"
     match = re.search(pat, filename)
     if match:
-        y, m, d, h, mi = match.groups()
-        return datetime(int(y), int(m), int(d), int(h), int(mi))
+        y, mo, d, h, mi = match.groups()
+        return datetime(int(y), int(mo), int(d), int(h), int(mi))
     return None
 
 
-def find_pending_import_file():
-    """查找待下载的 txt 文件"""
-    for f in TXT_DIR.glob(f"{TXT_PREFIX}*.txt"):
-        return f
-    return None
+def read_txt_links(txt_path):
+    """从 txt 读取链接列表"""
+    with open(txt_path, "r", encoding="utf-8") as f:
+        return [line.strip() for line in f if line.strip()]
 
 
 # ===================== Excel 操作 =====================
@@ -165,35 +189,62 @@ def check_and_import():
     log(f"[CFG] 配置文件: {_CFG_PATH}")
     log("=" * 50)
 
-    # 1. 查找待下载文件
-    txt_file = find_pending_import_file()
-    if not txt_file:
-        log("[FAIL] 未找到待下载文件")
-        return False
-    log(f"[FILE] 找到文件: {txt_file.name}")
+    # 1. 检查 Excel/txt 是否存在
+    excel_ok, txt_ok, txt_path, txt_dt = check_excel.check_files_exist()
+    log(f"[CHECK] Excel: {'存在' if excel_ok else '不存在'}")
+    log(f"[CHECK] txt: {'存在' if txt_ok else '不存在'}")
 
-    # 2. 提取文件名中的日期时间
-    file_datetime = extract_datetime_from_filename(txt_file.name)
-    if not file_datetime:
-        log(f"[FAIL] 无法从文件名提取日期时间: {txt_file.name}")
-        return False
-    log(f"[DATE] 文件日期时间: {file_datetime.strftime('%Y-%m-%d %H:%M')}")
-
-    # 3. 检查是否过期
     now = datetime.now()
+
+    # 2. 根据文件存在情况决定行为
+    just_generated = False  # 标记是否刚生成了新 txt
+
+    if not excel_ok and not txt_ok:
+        # 场景3：都不存在 → 生成新 txt
+        log("[GEN] Excel 和 txt 均不存在，根据模板生成新 txt")
+        try:
+            txt_path = create_download_links.generate_and_save_txt()
+            txt_dt = parse_txt_datetime(txt_path.name)
+            just_generated = True
+            log(f"[OK] 生成文件: {txt_path.name}")
+        except Exception as e:
+            log(f"[FAIL] 生成 txt 失败: {e}")
+            return False
+    
+    elif not excel_ok and txt_ok:
+        # 场景4：txt 存在、Excel 不存在 → 保留 txt 当作当前批次
+        log(f"[KEEP] txt 存在但 Excel 不存在，保留当前 txt 作为当前批次")
+        log(f"[INFO] 文件: {txt_path.name}")
+    
+    # 3. 检查是否过期
+    if txt_path is None:
+        log("[FAIL] 无法获取 txt 文件")
+        return False
+    
+    log(f"[FILE] 文件: {txt_path.name}")
+    
+    if txt_dt:
+        log(f"[DATE] 过期时间: {txt_dt.strftime('%Y-%m-%d %H:%M')}")
+    else:
+        log(f"[FAIL] 无法从文件名提取日期时间: {txt_path.name}")
+        return False
+    
     log(f"[TIME] 当前时间: {now.strftime('%Y-%m-%d %H:%M')}")
 
-    if now <= file_datetime:
+    if just_generated:
+        # 刚生成的 txt，直接导入（不过期检查）
+        log("[INFO] 刚生成的新 txt，直接导入")
+    elif now <= txt_dt:
         log("[WAIT] 当前时间未超过文件时间，无需导入")
         return True
-
-    log("[OK] 当前时间已超过文件时间，开始导入流程")
+    else:
+        log("[OK] 当前时间已超过文件时间，开始导入流程")
 
     # 4. 调用 IDM 导入
-    log(f"[IDM] 调用 IDM 导入: {txt_file}")
+    log(f"[IDM] 调用 IDM 导入: {txt_path}")
     try:
         result = subprocess.run(
-            [str(IDM_PATH), "/s", "/import", str(txt_file)],
+            [str(IDM_PATH), "/s", "/import", str(txt_path)],
             capture_output=True,
             text=True,
             timeout=60
@@ -206,11 +257,26 @@ def check_and_import():
         log(f"[FAIL] IDM 导入失败: {e}")
         return False
 
-    # 5. 更新 Excel 和文本文件
-    log("[EXCEL] 开始更新 Excel 和文本文件...")
-    success, new_filename = update_excel_and_file(txt_file)
-    if not success:
-        return False
+    # 5. 更新 Excel 或生成新 txt
+    if excel_ok:
+        # Excel 存在 → 用 Excel 更新
+        log("[EXCEL] 开始更新 Excel 和文本文件...")
+        success, new_filename = update_excel_and_file(txt_path)
+        if not success:
+            return False
+    else:
+        # Excel 不存在 → 用模板生成新 txt
+        log("[GEN] Excel 不存在，用模板生成新 txt")
+        try:
+            new_txt_path = create_download_links.generate_and_save_txt()
+            log(f"[OK] 生成文件: {new_txt_path.name}")
+            # 删除旧 txt
+            if txt_path and txt_path.exists():
+                txt_path.unlink()
+                log(f"[DELETE] 旧文件: {txt_path.name}")
+        except Exception as e:
+            log(f"[FAIL] 生成 txt 失败: {e}")
+            return False
 
     log("=" * 50)
     log("[OK] FY4B IDM 自动导入任务完成")
