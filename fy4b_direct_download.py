@@ -92,11 +92,12 @@ def log(msg):
 
 
 def ole_to_datetime(value):
-    """Excel OLE 日期 / datetime → Python datetime"""
+    """Excel OLE 日期 / datetime → Python datetime（统一去除时区信息）"""
     if value is None:
         return None
     if isinstance(value, datetime):
-        return value
+        # 去除时区信息，避免与 offset-naive 的 datetime.now() 比较报错
+        return value.replace(tzinfo=None)
     if isinstance(value, (int, float)):
         return datetime(1899, 12, 30) + timedelta(days=float(value))
     return None
@@ -128,22 +129,34 @@ def move_staging_to_target():
     if not STAGING_DIR.exists():
         return 0
     moved = 0
+    skipped = 0
     for f in STAGING_DIR.iterdir():
-        if f.suffix.lower() in _DL_EXTS:
-            dest = TARGET_DIR / f.name
-            try:
-                shutil.move(str(f), str(dest))
-                moved += 1
-            except Exception as e:
+        if f.suffix.lower() not in _DL_EXTS:
+            continue
+        # 确保目标目录存在
+        TARGET_DIR.mkdir(parents=True, exist_ok=True)
+        dest = TARGET_DIR / f.name
+        try:
+            if not f.exists():
+                log(f"[MOVE SKIP] 源文件不存在（可能被其他进程移动）: {f.name}")
+                skipped += 1
+                continue
+            shutil.move(str(f), str(dest))
+            moved += 1
+        except Exception as e:
+            if "cannot find" in str(e).lower() or "not found" in str(e).lower():
+                log(f"[MOVE SKIP] 文件不存在: {f.name}")
+                skipped += 1
+            else:
                 log(f"[MOVE FAIL] {f.name}: {e}")
-    if moved:
-        log(f"[MOVE] {moved} 个文件 → {TARGET_DIR}")
+    if moved or skipped:
+        log(f"[MOVE] 移动 {moved} 个，跳过 {skipped} 个 → {TARGET_DIR}")
     return moved
 
 
 # ===================== Excel 操作 =====================
 def update_excel_and_generate_txt():
-    """更新 Excel (B162→B2, 重算)，生成新的截止T.txt。返回 Path 或 None"""
+    """循环更新 Excel (B162值粘贴→B2, 重算) 直到 B1 >= 当前时间，然后生成新的截止T.txt。返回 Path 或 None"""
     log("[EXCEL] 启动更新流程...")
     import win32com.client
     excel = wb = ws = None
@@ -156,15 +169,40 @@ def update_excel_and_generate_txt():
         ws = wb.Worksheets(_XL_SHEET)
         excel.Calculate()
 
-        b162_val = ws.Range(_XL_B162).Value
-        if b162_val is None:
-            log(f"[FAIL] {_XL_B162} 为空，无法更新")
-            return None
+        now = datetime.now()
+        iteration = 0
+        max_iter = 50  # 安全上限，防止无限循环
+        cutoff = now - timedelta(hours=12)  # 停止条件：B1 >= now-12h
 
-        ws.Range(_XL_B2).Value = b162_val
-        excel.Calculate()
+        while True:
+            iteration += 1
+            if iteration > max_iter:
+                log(f"[WARN] 已循环 {max_iter} 次仍未满足条件，强制退出")
+                break
 
-        new_b1 = ole_to_datetime(ws.Range(_XL_B1).Value)
+            b162_val = ws.Range(_XL_B162).Value
+            if b162_val is None:
+                log(f"[FAIL] {_XL_B162} 为空，无法更新")
+                return None
+
+            # 值粘贴 B162 → B2
+            ws.Range(_XL_B2).Value = b162_val
+            excel.Calculate()
+
+            new_b1 = ole_to_datetime(ws.Range(_XL_B1).Value)
+            if not new_b1:
+                log("[FAIL] B1 值无法解析")
+                return None
+
+            log(f"[EXCEL] 第{iteration}次: B162→B2, B1={new_b1.strftime('%Y-%m-%d %H:%M')}")
+
+            if new_b1 >= cutoff:
+                log(f"[EXCEL] B1 >= {cutoff.strftime('%Y-%m-%d %H:%M')}，满足条件，停止循环")
+                break
+            else:
+                log(f"[EXCEL] B1 < {cutoff.strftime('%Y-%m-%d %H:%M')}，继续循环...")
+
+        # 收集链接
         links = []
         for row in range(_XL_ROW_START, _XL_ROW_END + 1):
             v = ws.Range(f"{_XL_LINK_COL}{row}").Value
@@ -176,7 +214,7 @@ def update_excel_and_generate_txt():
             return None
 
         wb.Save()
-        log(f"[EXCEL] {_XL_B162}→{_XL_B2} 完成，新过期时间: {new_b1.strftime('%Y-%m-%d %H:%M')}")
+        log(f"[EXCEL] 更新完成，新过期时间: {new_b1.strftime('%Y-%m-%d %H:%M')} (循环{iteration}次)")
 
         new_txt_path = TXT_DIR / format_txt_name(new_b1)
         with open(new_txt_path, "w", encoding="utf-8") as f:

@@ -83,11 +83,12 @@ def log(msg):
 
 
 def ole_to_datetime(value):
-    """Excel OLE 日期 / datetime → Python datetime"""
+    """Excel OLE 日期 / datetime → Python datetime（统一去除时区信息）"""
     if value is None:
         return None
     if isinstance(value, datetime):
-        return value
+        # 去除时区信息，避免与 offset-naive 的 datetime.now() 比较报错
+        return value.replace(tzinfo=None)
     if isinstance(value, (int, float)):
         return datetime(1899, 12, 30) + timedelta(days=float(value))
     return None
@@ -129,12 +130,39 @@ def update_excel_and_file(txt_file):
         wb = excel.Workbooks.Open(str(EXCEL_FILE))
         ws = wb.Worksheets(_XL_SHEET)
 
-        # B162 → B2
-        b162_value = ws.Range(_XL_B162).Value
-        ws.Range(_XL_B2).Value = b162_value
-        log(f"[COPY] {_XL_B162} → {_XL_B2}: {b162_value}")
+        # 循环: B162值粘贴→B2, 重算, 检查 B1 >= 当前时间
+        now = datetime.now()
+        iteration = 0
+        max_iter = 50
+        new_b1 = None
 
-        excel.Calculate()
+        cutoff = now - timedelta(hours=12)  # 停止条件：B1 >= now-12h
+
+        while True:
+            iteration += 1
+            if iteration > max_iter:
+                log(f"[WARN] 已循环 {max_iter} 次仍未满足条件，强制退出")
+                break
+
+            b162_value = ws.Range(_XL_B162).Value
+            if b162_value is None:
+                log(f"[FAIL] {_XL_B162} 为空，无法更新")
+                return False, None
+
+            # 值粘贴 B162 → B2
+            ws.Range(_XL_B2).Value = b162_value
+            log(f"[COPY] 第{iteration}次: {_XL_B162} → {_XL_B2}: {b162_value}")
+            excel.Calculate()
+
+            b1_value = ws.Range(_XL_B1).Value
+            new_b1 = ole_to_datetime(b1_value) if b1_value else None
+            log(f"[DATE] 第{iteration}次: B1 = {b1_value}")
+
+            if new_b1 and new_b1 >= cutoff:
+                log(f"[EXCEL] B1 >= {cutoff.strftime('%Y-%m-%d %H:%M')}，满足条件，停止循环")
+                break
+            else:
+                log(f"[EXCEL] B1 < {cutoff.strftime('%Y-%m-%d %H:%M')}，继续循环...")
 
         # 收集链接
         e_values = []
@@ -144,9 +172,9 @@ def update_excel_and_file(txt_file):
                 e_values.append(str(cell_value))
         log(f"[LINKS] 收集到 {len(e_values)} 个链接")
 
-        # 读取新的 B1
+        # 读取最终的 B1
         b1_value = ws.Range(_XL_B1).Value
-        log(f"[DATE] 新的 B1 值: {b1_value}")
+        log(f"[DATE] 最终 B1 值: {b1_value} (循环{iteration}次)")
 
         wb.Save()
         log("[OK] Excel 已保存")
