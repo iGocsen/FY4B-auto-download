@@ -93,6 +93,24 @@ def read_txt_links(txt_path):
         return [line.strip() for line in f if line.strip()]
 
 
+def is_future_link(url: str, future_minutes: int = 5) -> bool:
+    """
+    检查链接是否指向"未来"图片（文件名时间 - 8h > 当前时间 + future_minutes）。
+    文件名时间为 UTC+0，需转换为北京时间（UTC+8）后比较。
+    未来图片尚未生成，下载会得到 404 或无效内容，直接跳过。
+    """
+    import re as _re
+    filename = url.split("/")[-1]
+    m = _re.search(r"(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})00000\.JPG$", filename, _re.IGNORECASE)
+    if not m:
+        return False
+    y, mo, d, h, mi = m.groups()
+    link_dt_utc = datetime(int(y), int(mo), int(d), int(h), int(mi))
+    # 文件名是 UTC+0，转换为北京时间（UTC+8）
+    link_dt_beijing = link_dt_utc + timedelta(hours=8)
+    return link_dt_beijing > datetime.now() + timedelta(minutes=future_minutes)
+
+
 def move_staging_to_target():
     """将 STAGING_DIR 中所有图片移动到 TARGET_DIR"""
     if not STAGING_DIR.exists():
@@ -123,8 +141,8 @@ def move_staging_to_target():
 
 # ===================== 下载 =====================
 def download_links(links):
-    """批量下载到 STAGING_DIR，跳过已存在于 STAGING_DIR 或 TARGET_DIR 的文件"""
-    success = skip = fail = 0
+    """批量下载到 STAGING_DIR，跳过已存在于 STAGING_DIR 或 TARGET_DIR 的文件及未来图片"""
+    success = skip_exist = skip_future = fail = 0
     total = len(links)
 
     log(f"[DOWNLOAD] 共 {total} 个文件，目标: {STAGING_DIR}")
@@ -132,11 +150,16 @@ def download_links(links):
 
     for i, url in enumerate(links, 1):
         filename = url.split("/")[-1]
+        # 跳过未来图片（文件尚未生成，下载会得到 404 或无效内容）
+        if is_future_link(url):
+            skip_future += 1
+            continue
+
         staging_path = STAGING_DIR / filename
         target_path = TARGET_DIR / filename
 
         if staging_path.exists() or target_path.exists():
-            skip += 1
+            skip_exist += 1
             continue
 
         try:
@@ -147,7 +170,7 @@ def download_links(links):
                     f.write(resp.read())
             success += 1
             if success % _DL_PROGRESS == 0 or i == total:
-                log(f"[PROGRESS] {i}/{total} | 新下载: {success} | 跳过: {skip} | 失败: {fail}")
+                log(f"[PROGRESS] {i}/{total} | 新下载: {success} | 已存在: {skip_exist} | 未来: {skip_future} | 失败: {fail}")
         except Exception as e:
             fail += 1
             log(f"[FAIL] {filename}: {e}")
@@ -155,8 +178,8 @@ def download_links(links):
         if i % _DL_PQL_EVERY == 0:
             time.sleep(_DL_PQL_SEC)
 
-    log(f"[DONE] 新下载: {success} | 跳过: {skip} | 失败: {fail}")
-    return success, skip, fail
+    log(f"[DONE] 新下载: {success} | 已存在: {skip_exist} | 未来: {skip_future} | 失败: {fail}")
+    return success, skip_exist + skip_future, fail
 
 
 # ===================== 主流程 =====================
@@ -220,7 +243,7 @@ def main():
 
     if links is not None:
         ok, skip, fail = download_links(links)
-        log(f"[DONE] 当前批次 | 新下载: {ok} | 跳过: {skip} | 失败: {fail}")
+        log(f"[DONE] 当前批次 | 新下载: {ok} | 共跳过: {skip} | 失败: {fail}")
 
     # 5. 过期 → 更新 Excel/生成新 txt → 移动 → 删旧txt → 预下载下一批次
     if need_update:
@@ -256,7 +279,7 @@ def main():
         new_links = read_txt_links(new_txt_path)
         log(f"[DOWNLOAD] 下一批次: {new_txt_path.name} ({len(new_links)} 个链接)")
         ok2, skip2, fail2 = download_links(new_links)
-        log(f"[DONE] 下一批次预下载 | 新下载: {ok2} | 跳过: {skip2} | 失败: {fail2}")
+        log(f"[DONE] 下一批次预下载 | 新下载: {ok2} | 共跳过: {skip2} | 失败: {fail2}")
 
     log("=" * 50)
     log("[OK] 任务完成")
