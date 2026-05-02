@@ -3,7 +3,7 @@
 """
 FY4B 云图 IDM 自动导入脚本
 功能：
-1. 检查待导入文件中的日期时间是否已过期
+1. 检查待下载文件中的日期时间是否已过期
 2. 调用 IDM 导入下载任务
 3. 使用 Excel COM 接口更新文件并获取计算后的值
 """
@@ -31,17 +31,17 @@ def log(msg):
 
 def extract_datetime_from_filename(filename):
     """从文件名提取日期时间
-    格式：截止：2026年04月28日0907.txt
+    格式：截止T：2026年04月28日0907.txt
     """
-    match = re.search(r'截止：(\d{4})年(\d{2})月(\d{2})日(\d{2})(\d{2})\.txt', filename)
+    match = re.search(r'截止T：(\d{4})年(\d{2})月(\d{2})日(\d{2})(\d{2})\.txt', filename)
     if match:
         year, month, day, hour, minute = match.groups()
         return datetime(int(year), int(month), int(day), int(hour), int(minute))
     return None
 
 def find_pending_import_file():
-    """查找待导入的txt文件"""
-    for f in BASE_DIR.glob("截止：*.txt"):
+    """查找待下载的txt文件"""
+    for f in BASE_DIR.glob("截止T：*.txt"):
         return f
     return None
 
@@ -107,7 +107,7 @@ def update_excel_and_file(txt_file):
                 # Excel 返回的是 float (OLE Automation Date)
                 new_dt = datetime(1899, 12, 30) + timedelta(days=float(b1_value))
             
-            new_filename = f"截止：{new_dt.strftime('%Y年%m月%d日%H%M')}.txt"
+            new_filename = f"截止T：{new_dt.strftime('%Y年%m月%d日%H%M')}.txt"
             new_txt_path = BASE_DIR / new_filename
             
             if txt_file != new_txt_path:
@@ -134,10 +134,10 @@ def check_and_import():
     log("FY4B IDM 自动导入任务开始")
     log("=" * 50)
     
-    # 1. 查找待导入文件
+    # 1. 查找待下载文件
     txt_file = find_pending_import_file()
     if not txt_file:
-        log("[FAIL] 未找到待导入文件")
+        log("[FAIL] 未找到待下载文件")
         return False
     
     log(f"[FILE] 找到文件: {txt_file.name}")
