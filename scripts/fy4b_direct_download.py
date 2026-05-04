@@ -93,7 +93,7 @@ def read_txt_links(txt_path):
         return [line.strip() for line in f if line.strip()]
 
 
-def is_future_link(url: str, future_minutes: int = -50) -> bool:
+def is_future_link(url: str, future_minutes: int = -47) -> bool:
     """
     检查链接是否指向"未来"图片（文件名时间 - 8h > 当前时间 + future_minutes）。
     文件名时间为 UTC+0，需转换为北京时间（UTC+8）后比较。
@@ -220,9 +220,13 @@ def main():
     if just_generated:
         log("[INFO] 刚生成的新 txt，直接下载当前批次")
     elif txt_dt:
+        # 过期时间 + 1.2 小时缓冲
+        expire_with_buffer = txt_dt + timedelta(hours=1.2)
+        log(f"[CHECK] 过期时间(含1.5h缓冲): {expire_with_buffer.strftime('%Y-%m-%d %H:%M')}")
         log(f"[CHECK] 过期时间: {txt_dt.strftime('%Y-%m-%d %H:%M')}")
         log(f"[CHECK] 当前时间: {now.strftime('%Y-%m-%d %H:%M')}")
-        if now > txt_dt:
+        # if now > txt_dt:
+        if now > expire_with_buffer:
             need_update = True
             log("[INFO] 已过期")
         else:

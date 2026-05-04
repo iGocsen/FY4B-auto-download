@@ -259,10 +259,14 @@ def check_and_import():
     
     log(f"[TIME] 当前时间: {now.strftime('%Y-%m-%d %H:%M')}")
 
+    # 过期时间 + 1.5 小时缓冲
+    expire_with_buffer = txt_dt + timedelta(hours=-41.5-11/30)
+
     if just_generated:
         # 刚生成的 txt，直接导入（不过期检查）
         log("[INFO] 刚生成的新 txt，直接导入")
-    elif now <= txt_dt:
+    # elif now <= txt_dt:
+    elif now <= expire_with_buffer:
         log("[WAIT] 当前时间未超过文件时间，无需导入")
         return True
     else:
