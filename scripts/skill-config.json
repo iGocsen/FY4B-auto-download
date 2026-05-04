@@ -1,0 +1,64 @@
+{
+  "description": "FY4B云图下载脚本配置 — 修改此文件即可，无需改动 Python 脚本",
+  "last_updated": "2026-05-04",
+  "unified_explanation": "所有脚本统一从 paths/Excel/download_setting/txt_regular/push_targets/push_message_template/cron_schedule 字段读取，不要混用其他顶层字段",
+
+  "paths": {
+    "staging_dir": "D:\\云图\\FY4B_40H",
+    "target_dir": "D:\\云图\\FY4B",
+    "urls_txt_file": "D:\\云图\\FY4B\\待导入日期",
+    "Excel_file": "D:\\云图\\FY4B\\待导入日期\\链接生成-有效期24小时.xlsx",
+    "url_template_file": "templates/url_template.md",
+    "idm_program": "D:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe",
+    "downloader_script": "fy4b_direct_download.py"
+  },
+
+  "Excel": {
+    "sheet": 1,
+    "B162单元格": "B162",
+    "B2单元格": "B2",
+    "B1单元格": "B1",
+    "链接列": "E",
+    "链接起始行": 2,
+    "链接结束行": 161
+  },
+
+  "download_setting": {
+    "超时秒数": 30,
+    "每N个请求暂停": 10,
+    "暂停秒数": 0.5,
+    "进度汇报间隔": 20,
+    "UserAgent": "Mozilla/5.0",
+    "图片后缀": [".jpg", ".jpeg", ".png", ".gif"]
+  },
+
+  "txt_regular": {
+    "前缀": "截止T：",
+    "日期格式": "%Y年%m月%d日%H%M",
+    "链接数量": 160,
+    "时间偏移小时": 30,
+    "总时长小时": 40,
+    "链接间隔分钟": 15,
+    "截止时间偏移分钟": 22
+  },
+
+  "push_targets": [
+    {
+      "channel": "qqbot",
+      "to": "qqbot:c2c:<your_qq_openid>",
+      "accountId": "<qqbot_AppID>",
+      "label": "QQ"
+    },
+    {
+      "channel": "openclaw-weixin",
+      "to": "<chat_id>@im.wechat",
+      "accountId": "<openclaw_weixin_accountId>",
+      "label": "微信"
+    }
+  ],
+
+  "push_message_template": "📡 **FY4B 云图下载报告**\n\n✅ 新下载: **{new}**\n⏭️ 已存在: **{skip_exist}**\n🔮 未来图片: **{skip_future}**\n❌ 失败: **{fail}**\n\n⏰ 执行时间：{exec_time}",
+
+  "cron_schedule": "30 9,15,21 * * *",
+  "cron_timezone": "Asia/Shanghai"
+}
