@@ -8,7 +8,7 @@ FY4B Excel/txt 文件检查器
 2. 检查 txt 文件是否存在
 3. 可被其他脚本 import 调用
 
-所有路径从 fy4b_config.json 读取。
+所有路径从 skill_config.json 读取。
 """
 
 import json
@@ -18,7 +18,7 @@ from pathlib import Path
 
 
 # ===================== 加载配置 =====================
-_CFG_PATH = Path(__file__).parent / "fy4b_config.json"
+_CFG_PATH = Path(__file__).parent / "skill_config.json"
 
 with open(_CFG_PATH, "r", encoding="utf-8") as _f:
     C = json.load(_f)
@@ -43,9 +43,9 @@ def _resolve_path(raw_path, base_dir=None):
 
 
 # 路径（所有路径都走智能解析）
-EXCEL_FILE = _resolve_path(C["路径"]["Excel文件"])
-TXT_DIR = _resolve_path(C["路径"]["txt文件目录"])
-TXT_PREFIX = C["txt文件"]["前缀"]
+EXCEL_FILE = _resolve_path(C["paths"]["Excel_file"])
+TXT_DIR = _resolve_path(C["paths"]["urls_txt_file"])
+TXT_PREFIX = C["txt_regular"]["前缀"]
 
 
 # ===================== 检查函数 =====================

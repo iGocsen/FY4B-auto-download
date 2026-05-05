@@ -1,18 +1,18 @@
 {
-  "_说明": "FY4B云图下载脚本配置 — 修改此文件即可，无需改动 Python 脚本",
-  "_最后更新": "2026-05-02",
+  "description": "FY4B云图下载脚本配置 — 修改此文件即可，无需改动 Python 脚本",
+  "last_updated": "2026-05-05",
 
-  "路径": {
-    "临时目录": "./云图/FY4B_40H",
-    "目标目录": "./云图/FY4B",
-    "txt文件目录": "./",
-    "Excel文件": "./链接生成-有效期24小时.xlsx",
-    "模板文件": "./url_template.md",
-    "IDM程序": "C:\\Program Files\\Internet Download Manager\\IDMan.exe"
+  "paths": {
+    "staging_dir": "./../云图/FY4B_40H",
+    "target_dir": "./../云图/FY4B",
+    "urls_txt_file": "./",
+    "Excel_file": "./卫星云图导入时间控制.xlsx",
+    "url_template_file": "./url_template.md",
+    "idm_program": "C:\\Program Files\\Internet Download Manager\\IDMan.exe"
   },
 
   "Excel": {
-    "工作表索引": 1,
+    "sheet": 1,
     "B162单元格": "B162",
     "B2单元格": "B2",
     "B1单元格": "B1",
@@ -21,7 +21,7 @@
     "链接结束行": 161
   },
 
-  "下载": {
+  "download_setting": {
     "超时秒数": 30,
     "每N个请求暂停": 10,
     "暂停秒数": 0.5,
@@ -30,7 +30,7 @@
     "图片后缀": [".jpg", ".jpeg", ".png", ".gif"]
   },
 
-  "txt文件": {
+  "txt_regular": {
     "前缀": "截止T：",
     "日期格式": "%Y年%m月%d日%H%M",
     "链接数量": 160,

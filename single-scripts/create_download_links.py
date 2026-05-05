@@ -41,21 +41,21 @@ def _resolve_path(raw_path, base_dir=None):
 
 # ===================== 配置常量 =====================
 # 路径
-TXT_DIR      = _resolve_path(C["路径"]["txt文件目录"])
-TEMPLATE_FILE = _resolve_path(C["路径"]["模板文件"])
+TXT_DIR      = _resolve_path(C["paths"]["urls_txt_file"])
+TEMPLATE_FILE = _resolve_path(C["paths"]["url_template_file"])
 
 # txt 文件
-TXT_PREFIX            = C["txt文件"]["前缀"]
-TXT_DATEFMT           = C["txt文件"]["日期格式"]
-LINK_COUNT            = C["txt文件"]["链接数量"]
-OFFSET_HOURS          = C["txt文件"]["时间偏移小时"]
-TOTAL_HOURS           = C["txt文件"]["总时长小时"]
-INTERVAL_MINUTES      = C["txt文件"]["链接间隔分钟"]
-EXPIRY_OFFSET_MINUTES = C["txt文件"]["截止时间偏移分钟"]
+TXT_PREFIX            = C["txt_regular"]["前缀"]
+TXT_DATEFMT           = C["txt_regular"]["日期格式"]
+LINK_COUNT            = C["txt_regular"]["链接数量"]
+OFFSET_HOURS          = C["txt_regular"]["时间偏移小时"]
+TOTAL_HOURS           = C["txt_regular"]["总时长小时"]
+INTERVAL_MINUTES      = C["txt_regular"]["链接间隔分钟"]
+EXPIRY_OFFSET_MINUTES = C["txt_regular"]["截止时间偏移分钟"]
 
 # Excel 结构
-EXCEL_FILE   = _resolve_path(C["路径"]["Excel文件"])
-_XL_SHEET    = C["Excel"]["工作表索引"]
+EXCEL_FILE   = _resolve_path(C["paths"]["Excel_file"])
+_XL_SHEET    = C["Excel"]["sheet"]
 _XL_B162     = C["Excel"]["B162单元格"]
 _XL_B2       = C["Excel"]["B2单元格"]
 _XL_B1       = C["Excel"]["B1单元格"]

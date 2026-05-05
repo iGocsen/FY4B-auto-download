@@ -12,7 +12,7 @@ FY4B 云图 IDM 自动导入脚本
 3. 调用 IDM 导入下载任务
 4. 使用 Excel COM 接口更新文件并获取计算后的值
 
-所有路径、软件位置、参数均从 fy4b_config.json 读取。
+所有路径、软件位置、参数均从 skill_config.json 读取。
 """
 
 import json
@@ -28,7 +28,7 @@ import create_download_links
 
 
 # ===================== 加载配置 =====================
-_CFG_PATH = Path(__file__).parent / "fy4b_config.json"
+_CFG_PATH = Path(__file__).parent / "skill_config.json"
 _SCRIPT_DIR = Path(__file__).parent
 
 with open(_CFG_PATH, "r", encoding="utf-8") as _f:
@@ -51,12 +51,12 @@ def _resolve_path(raw_path, base_dir=None):
 
 
 # 路径（所有路径都走智能解析）
-TXT_DIR    = _resolve_path(C["路径"]["txt文件目录"])
-EXCEL_FILE = _resolve_path(C["路径"]["Excel文件"])
-IDM_PATH   = _resolve_path(C["路径"]["IDM程序"])
+TXT_DIR    = _resolve_path(C["paths"]["urls_txt_file"])
+EXCEL_FILE = _resolve_path(C["paths"]["Excel_file"])
+IDM_PATH   = _resolve_path(C["paths"]["idm_program"])
 
 # Excel 结构
-_XL_SHEET     = C["Excel"]["工作表索引"]
+_XL_SHEET     = C["Excel"]["sheet"]
 _XL_B162      = C["Excel"]["B162单元格"]
 _XL_B2        = C["Excel"]["B2单元格"]
 _XL_B1        = C["Excel"]["B1单元格"]
@@ -65,8 +65,8 @@ _XL_ROW_START = C["Excel"]["链接起始行"]
 _XL_ROW_END   = C["Excel"]["链接结束行"]
 
 # txt 文件
-TXT_PREFIX  = C["txt文件"]["前缀"]
-TXT_DATEFMT = C["txt文件"]["日期格式"]
+TXT_PREFIX  = C["txt_regular"]["前缀"]
+TXT_DATEFMT = C["txt_regular"]["日期格式"]
 
 
 # ===================== 辅助函数 =====================
@@ -249,7 +249,7 @@ def check_and_import():
         log("[FAIL] 无法获取 txt 文件")
         return False
     
-    log(f"[FILE] 文件: {txt_path.name}")
+    log(f"[FILE] 文件 → {txt_path.name}")
     
     if txt_dt:
         log(f"[DATE] 过期时间: {txt_dt.strftime('%Y-%m-%d %H:%M')}")
@@ -259,10 +259,14 @@ def check_and_import():
     
     log(f"[TIME] 当前时间: {now.strftime('%Y-%m-%d %H:%M')}")
 
+    # 过期时间 + 1.5 小时缓冲
+    expire_with_buffer = txt_dt + timedelta(hours=-41.5-11/30)
+
     if just_generated:
         # 刚生成的 txt，直接导入（不过期检查）
         log("[INFO] 刚生成的新 txt，直接导入")
-    elif now <= txt_dt:
+    # elif now <= txt_dt:
+    elif now <= expire_with_buffer:
         log("[WAIT] 当前时间未超过文件时间，无需导入")
         return True
     else:
