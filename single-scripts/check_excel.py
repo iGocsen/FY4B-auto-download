@@ -43,9 +43,9 @@ def _resolve_path(raw_path, base_dir=None):
 
 
 # 路径（所有路径都走智能解析）
-EXCEL_FILE = _resolve_path(C["路径"]["Excel文件"])
-TXT_DIR = _resolve_path(C["路径"]["txt文件目录"])
-TXT_PREFIX = C["txt文件"]["前缀"]
+EXCEL_FILE = _resolve_path(C["paths"]["Excel_file"])
+TXT_DIR = _resolve_path(C["paths"]["urls_txt_file"])
+TXT_PREFIX = C["txt_regular"]["前缀"]
 
 
 # ===================== 检查函数 =====================

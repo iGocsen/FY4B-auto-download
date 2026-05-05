@@ -57,19 +57,19 @@ def _resolve_path(raw_path, base_dir=None):
 
 
 # 路径（所有路径都走智能解析）
-STAGING_DIR = _resolve_path(C["路径"]["临时目录"])
-TARGET_DIR  = _resolve_path(C["路径"]["目标目录"])
-TXT_DIR     = _resolve_path(C["路径"]["txt文件目录"])
-EXCEL_FILE  = _resolve_path(C["路径"]["Excel文件"])
-IDM_PATH    = _resolve_path(C["路径"]["IDM程序"])
+STAGING_DIR = _resolve_path(C["paths"]["staging_dir"])
+TARGET_DIR  = _resolve_path(C["paths"]["target_dir"])
+TXT_DIR     = _resolve_path(C["paths"]["urls_txt_file"])
+EXCEL_FILE  = _resolve_path(C["paths"]["Excel_file"])
+IDM_PATH    = _resolve_path(C["paths"]["idm_program"])
 
 # 下载参数
-_DL_TIMEOUT   = C["下载"]["超时秒数"]
-_DL_PQL_EVERY = C["下载"]["每N个请求暂停"]
-_DL_PQL_SEC   = C["下载"]["暂停秒数"]
-_DL_PROGRESS  = C["下载"]["进度汇报间隔"]
-_DL_UA        = C["下载"]["UserAgent"]
-_DL_EXTS      = set(C["下载"]["图片后缀"])
+_DL_TIMEOUT   = C["download_setting"]["超时秒数"]
+_DL_PQL_EVERY = C["download_setting"]["每N个请求暂停"]
+_DL_PQL_SEC   = C["download_setting"]["暂停秒数"]
+_DL_PROGRESS  = C["download_setting"]["进度汇报间隔"]
+_DL_UA        = C["download_setting"]["UserAgent"]
+_DL_EXTS      = set(C["download_setting"]["图片后缀"])
 
 
 # ===================== 辅助函数 =====================
@@ -222,7 +222,7 @@ def main():
     elif txt_dt:
         # 过期时间 + 1.2 小时缓冲
         expire_with_buffer = txt_dt + timedelta(hours=1.2)
-        log(f"[CHECK] 过期时间(含1.5h缓冲): {expire_with_buffer.strftime('%Y-%m-%d %H:%M')}")
+        log(f"[CHECK] 过期时间(含1.2h缓冲): {expire_with_buffer.strftime('%Y-%m-%d %H:%M')}")
         log(f"[CHECK] 过期时间: {txt_dt.strftime('%Y-%m-%d %H:%M')}")
         log(f"[CHECK] 当前时间: {now.strftime('%Y-%m-%d %H:%M')}")
         # if now > txt_dt:

@@ -43,7 +43,7 @@ _config = json.loads(_config_path.read_text(encoding="utf-8"))
 
 运行以下命令并捕获完整输出：
 ```
-python %UserProfile%\.qclaw\skills\FY4B-auto-download\scripts\fy4b_download.py
+python {skills_dir}\FY4B-auto-download\scripts\fy4b_download.py
 ```
 
 **步骤2：从输出中提取 Markdown 报告。**

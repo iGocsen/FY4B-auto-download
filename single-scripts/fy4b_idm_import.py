@@ -51,12 +51,12 @@ def _resolve_path(raw_path, base_dir=None):
 
 
 # 路径（所有路径都走智能解析）
-TXT_DIR    = _resolve_path(C["路径"]["txt文件目录"])
-EXCEL_FILE = _resolve_path(C["路径"]["Excel文件"])
-IDM_PATH   = _resolve_path(C["路径"]["IDM程序"])
+TXT_DIR    = _resolve_path(C["paths"]["urls_txt_file"])
+EXCEL_FILE = _resolve_path(C["paths"]["Excel_file"])
+IDM_PATH   = _resolve_path(C["paths"]["idm_program"])
 
 # Excel 结构
-_XL_SHEET     = C["Excel"]["工作表索引"]
+_XL_SHEET     = C["Excel"]["sheet"]
 _XL_B162      = C["Excel"]["B162单元格"]
 _XL_B2        = C["Excel"]["B2单元格"]
 _XL_B1        = C["Excel"]["B1单元格"]
@@ -65,8 +65,8 @@ _XL_ROW_START = C["Excel"]["链接起始行"]
 _XL_ROW_END   = C["Excel"]["链接结束行"]
 
 # txt 文件
-TXT_PREFIX  = C["txt文件"]["前缀"]
-TXT_DATEFMT = C["txt文件"]["日期格式"]
+TXT_PREFIX  = C["txt_regular"]["前缀"]
+TXT_DATEFMT = C["txt_regular"]["日期格式"]
 
 
 # ===================== 辅助函数 =====================

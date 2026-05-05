@@ -249,7 +249,7 @@ def check_and_import():
         log("[FAIL] 无法获取 txt 文件")
         return False
     
-    log(f"[FILE] 文件: {txt_path.name}")
+    log(f"[FILE] 文件 → {txt_path.name}")
     
     if txt_dt:
         log(f"[DATE] 过期时间: {txt_dt.strftime('%Y-%m-%d %H:%M')}")

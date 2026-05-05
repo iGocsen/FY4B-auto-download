@@ -187,8 +187,8 @@ def download_links(links, batch_label=""):
 
     # 失败原因分析
     fail_details = _analyze_failures(fail_records, batch_label)
-    if fail_details:
-        log(fail_details)
+    # if fail_details:
+    #     log(fail_details)
 
     log(f"[DONE] 新下载: {success} | 已存在: {skip_exist} | 未来: {skip_future} | 失败: {fail}")
     return success, skip_exist, skip_future, fail, fail_details
@@ -198,8 +198,8 @@ def _analyze_failures(fail_records, batch_label=""):
     """分析失败记录，返回人类可读的原因汇总字符串。
 
     按错误类型分类统计，输出类似：
-    批次: 截止T: xxx.txt (160 个链接)
-    1个文件HTTP 404错误，属上游资源问题，可忽略。
+        截止T: xxx.txt (160 个链接)
+        1个文件HTTP 404错误，属上游资源问题，可忽略。
     """
     if not fail_records:
         return ""
@@ -284,7 +284,7 @@ def main():
     elif txt_dt:
         # 过期时间 + 1.2 小时缓冲
         expire_with_buffer = txt_dt + timedelta(hours=1.2)
-        log(f"[CHECK] 过期时间(含1.5h缓冲): {expire_with_buffer.strftime('%Y-%m-%d %H:%M')}")
+        log(f"[CHECK] 过期时间(含1.2h缓冲): {expire_with_buffer.strftime('%Y-%m-%d %H:%M')}")
         log(f"[CHECK] 过期时间: {txt_dt.strftime('%Y-%m-%d %H:%M')}")
         log(f"[CHECK] 当前时间: {now.strftime('%Y-%m-%d %H:%M')}")
         # if now > txt_dt:
@@ -300,7 +300,7 @@ def main():
     # 4. 读取 txt 并下载到临时目录
     if txt_path and txt_path.exists():
         links = read_txt_links(txt_path)
-        log(f"[DOWNLOAD] 当前批次: {txt_path.name} ({len(links)} 个链接)")
+        log(f"[DOWNLOAD] 当前批次 → {txt_path.name} ({len(links)} 个链接)")
     elif need_update:
         links = None
     else:
@@ -346,7 +346,7 @@ def main():
             log(f"[DELETE] 旧文件: {old_txt_path.name}")
 
         new_links = read_txt_links(new_txt_path)
-        log(f"[DOWNLOAD] 下一批次: {new_txt_path.name} ({len(new_links)} 个链接)")
+        log(f"[DOWNLOAD] 下一批次 → {new_txt_path.name} ({len(new_links)} 个链接)")
         ok2, skip_exist2, skip_future2, fail2, fail_details2 = download_links(new_links, batch_label=new_txt_path.name)
         log(f"[DONE] 下一批次预下载 | 新下载: {ok2} | 已存在: {skip_exist2} | 未来: {skip_future2} | 失败: {fail2}")
 
