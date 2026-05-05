@@ -7,7 +7,7 @@ FY4B 云图下载链接生成 & Excel 更新模块
   - generate_and_save_txt(start_time=None) → 生成链接并保存到 txt
   - update_excel_and_generate_txt(excel_file=None) → 循环更新 Excel 达标后生成新 txt
 
-所有参数从 skill-config.json 读取。
+所有参数从 skill_config.json 读取。
 """
 
 import json
@@ -19,7 +19,7 @@ from pathlib import Path
 
 # ===================== 加载配置 =====================
 _SCRIPT_DIR = Path(__file__).parent
-_CFG_PATH = _SCRIPT_DIR / "skill-config.json"
+_CFG_PATH = _SCRIPT_DIR / "skill_config.json"
 
 with open(_CFG_PATH, "r", encoding="utf-8") as _f:
     C = json.load(_f)

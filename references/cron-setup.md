@@ -21,14 +21,14 @@ python %UserProfile%\.qclaw\skills\FY4B-auto-download\scripts\fy4b_download.py
 如果输出包含「📡 FY4B 云图下载报告」则为成功，直接使用该 Markdown 内容。
 如果输出包含「⚠️ 解析失败」则为失败，使用错误原文作为消息。
 
-步骤3：读取配置文件 %UserProfile%\.qclaw\skills\FY4B-auto-download\scripts\skill-config.json，遍历 push_targets 数组，对每个目标调用 message 工具（channel/to/accountId 均来自配置字段）。
+步骤3：读取配置文件 %UserProfile%\.qclaw\skills\FY4B-auto-download\scripts\skill_config.json，遍历 push_targets 数组，对每个目标调用 message 工具（channel/to/accountId 均来自配置字段）。
 
 注意：不要回复 HEARTBEAT_OK，不要有多余文字，直接调用 message 工具推送报告内容即可并在对话窗口输出捕获的 markdown 内容
 ```
 
 ## 更新推送目标步骤
 
-1. 修改 `scripts/skill-config.json` 中的 `push_targets` 数组
+1. 修改 `scripts/skill_config.json` 中的 `push_targets` 数组
 2. 执行 `cron update` 同步修改任务 payload（推送目标从配置读取，payload 无需变更）
 2. payload 指示 agent 从配置文件读取推送目标，因此**只需改配置文件即可，无需更新 cron**
 

@@ -18,7 +18,7 @@ FY4B 云图自动下载脚本
 4. 当前时间 <= B1（未过期）:
    a. 读取现有 txt → 下载到 {临时目录}
 
-所有路径、软件位置、参数均从 skill-config.json 读取，改配置即可，无需动脚本。
+所有路径、软件位置、参数均从 skill_config.json 读取，改配置即可，无需动脚本。
 """
 
 import json
@@ -35,7 +35,7 @@ import create_download_links
 
 
 # ===================== 加载配置 =====================
-_CFG_PATH = Path(__file__).parent / "skill-config.json"
+_CFG_PATH = Path(__file__).parent / "skill_config.json"
 _SCRIPT_DIR = Path(__file__).parent
 
 with open(_CFG_PATH, "r", encoding="utf-8") as _f:
@@ -140,9 +140,14 @@ def move_staging_to_target():
 
 
 # ===================== 下载 =====================
-def download_links(links):
-    """批量下载到 STAGING_DIR，跳过已存在于 STAGING_DIR 或 TARGET_DIR 的文件及未来图片"""
+def download_links(links, batch_label=""):
+    """批量下载到 STAGING_DIR，跳过已存在于 STAGING_DIR 或 TARGET_DIR 的文件及未来图片。
+
+    返回 (success, skip_exist, skip_future, fail, fail_details) 五元组。
+    fail_details 为失败原因分析字符串（空字符串表示无失败）。
+    """
     success = skip_exist = skip_future = fail = 0
+    fail_records = []  # 收集失败记录用于原因分析
     total = len(links)
 
     log(f"[DOWNLOAD] 共 {total} 个文件，目标: {STAGING_DIR}")
@@ -173,13 +178,70 @@ def download_links(links):
                 log(f"[PROGRESS] {i}/{total} | 新下载: {success} | 已存在: {skip_exist} | 未来: {skip_future} | 失败: {fail}")
         except Exception as e:
             fail += 1
-            log(f"[FAIL] {filename}: {e}")
+            err_str = str(e)
+            log(f"[FAIL] {filename}: {err_str}")
+            fail_records.append((filename, err_str))
 
         if i % _DL_PQL_EVERY == 0:
             time.sleep(_DL_PQL_SEC)
 
+    # 失败原因分析
+    fail_details = _analyze_failures(fail_records, batch_label)
+    if fail_details:
+        log(fail_details)
+
     log(f"[DONE] 新下载: {success} | 已存在: {skip_exist} | 未来: {skip_future} | 失败: {fail}")
-    return success, skip_exist, skip_future, fail
+    return success, skip_exist, skip_future, fail, fail_details
+
+
+def _analyze_failures(fail_records, batch_label=""):
+    """分析失败记录，返回人类可读的原因汇总字符串。
+
+    按错误类型分类统计，输出类似：
+    批次: 截止T: xxx.txt (160 个链接)
+    1个文件HTTP 404错误，属上游资源问题，可忽略。
+    """
+    if not fail_records:
+        return ""
+
+    # 按错误类型归类
+    from collections import Counter
+    error_types = Counter()
+    for _filename, err_str in fail_records:
+        err_lower = err_str.lower()
+        if "404" in err_lower or "not found" in err_lower:
+            error_types["HTTP 404"] += 1
+        elif "403" in err_lower or "forbidden" in err_lower:
+            error_types["HTTP 403"] += 1
+        elif "timeout" in err_lower or "timed out" in err_lower:
+            error_types["超时"] += 1
+        elif "ssl" in err_lower or "certificate" in err_lower:
+            error_types["SSL"] += 1
+        elif "connection" in err_lower or "refused" in err_lower:
+            error_types["连接失败"] += 1
+        else:
+            error_types["其他错误"] += 1
+
+    parts = []
+    if batch_label:
+        parts.append(f"{batch_label} ({len(fail_records)} 个链接)")
+    for err_type, count in error_types.items():
+        suggestion = _failure_suggestion(err_type)
+        parts.append(f"{count}个文件{err_type}错误，{suggestion}。")
+    return "\n".join(parts)
+
+
+def _failure_suggestion(err_type):
+    """根据错误类型给出建议"""
+    suggestions = {
+        "HTTP 404": "属上游资源问题，可忽略",
+        "HTTP 403": "可能被限流或权限问题，稍后重试",
+        "超时": "网络波动导致，可重试",
+        "SSL": "证书问题，检查系统时间或网络环境",
+        "连接失败": "网络不通，请检查网络连接",
+        "其他错误": "需人工排查",
+    }
+    return suggestions.get(err_type, "需人工排查")
 
 
 # ===================== 主流程 =====================
@@ -246,8 +308,11 @@ def main():
         return False
 
     if links is not None:
-        ok, skip_exist, skip_future, fail = download_links(links)
+        ok, skip_exist, skip_future, fail, fail_details = download_links(links, batch_label=txt_path.name if txt_path else "")
         log(f"[DONE] 当前批次 | 新下载: {ok} | 已存在: {skip_exist} | 未来: {skip_future} | 失败: {fail}")
+        # 单批次路径也输出失败分析标记
+        if fail_details:
+            log(f"[FAIL_ANALYSIS]{fail_details}")
 
     # 5. 过期 → 更新 Excel/生成新 txt → 移动 → 删旧txt → 预下载下一批次
     if need_update:
@@ -282,8 +347,19 @@ def main():
 
         new_links = read_txt_links(new_txt_path)
         log(f"[DOWNLOAD] 下一批次: {new_txt_path.name} ({len(new_links)} 个链接)")
-        ok2, skip_exist2, skip_future2, fail2 = download_links(new_links)
+        ok2, skip_exist2, skip_future2, fail2, fail_details2 = download_links(new_links, batch_label=new_txt_path.name)
         log(f"[DONE] 下一批次预下载 | 新下载: {ok2} | 已存在: {skip_exist2} | 未来: {skip_future2} | 失败: {fail2}")
+
+        # # 汇总两批下载的总数，供入口脚本正则捕获
+        # total_new = ok + ok2
+        # total_skip_exist = skip_exist + skip_exist2
+        # total_skip_future = skip_future + skip_future2
+        # total_fail = fail + fail2
+        # log(f"[DONE] 汇总 | 新下载: {total_new} | 已存在: {total_skip_exist} | 未来: {total_skip_future} | 失败: {total_fail}")
+        # 合并失败原因（用特殊标记 [FAIL_ANALYSIS] 供外层解析）
+        all_fail_details = "\n".join(filter(None, [fail_details, fail_details2]))
+        if all_fail_details:
+            log(f"[FAIL_ANALYSIS]{all_fail_details}")
 
     log("=" * 50)
     log("[OK] 任务完成")

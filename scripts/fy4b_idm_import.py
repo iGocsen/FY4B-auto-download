@@ -12,7 +12,7 @@ FY4B 云图 IDM 自动导入脚本
 3. 调用 IDM 导入下载任务
 4. 使用 Excel COM 接口更新文件并获取计算后的值
 
-所有路径、软件位置、参数均从 skill-config.json 读取。
+所有路径、软件位置、参数均从 skill_config.json 读取。
 """
 
 import json
@@ -28,7 +28,7 @@ import create_download_links
 
 
 # ===================== 加载配置 =====================
-_CFG_PATH = Path(__file__).parent / "skill-config.json"
+_CFG_PATH = Path(__file__).parent / "skill_config.json"
 _SCRIPT_DIR = Path(__file__).parent
 
 with open(_CFG_PATH, "r", encoding="utf-8") as _f:

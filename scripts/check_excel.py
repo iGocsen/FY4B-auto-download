@@ -8,7 +8,7 @@ FY4B Excel/txt 文件检查器
 2. 检查 txt 文件是否存在
 3. 可被其他脚本 import 调用
 
-所有路径从 skill-config.json 读取。
+所有路径从 skill_config.json 读取。
 """
 
 import json
@@ -18,7 +18,7 @@ from pathlib import Path
 
 
 # ===================== 加载配置 =====================
-_CFG_PATH = Path(__file__).parent / "skill-config.json"
+_CFG_PATH = Path(__file__).parent / "skill_config.json"
 
 with open(_CFG_PATH, "r", encoding="utf-8") as _f:
     C = json.load(_f)
