@@ -21,9 +21,11 @@ python {skills_dir}\FY4B-auto-download\scripts\fy4b_download.py
 如果输出包含「📡 FY4B 云图下载报告」则为成功，直接使用该 Markdown 内容。
 如果输出包含「⚠️ 解析失败」则为失败，使用错误原文作为消息。
 
-步骤3：读取配置文件 {skills_dir}\FY4B-auto-download\scripts\skill_config.json，遍历 push_targets 数组，对每个目标调用 message 工具（channel/to/accountId 均来自配置字段）。
+步骤3：用 message 工具推送到以下目标（依次调用，channel/to/accountId 必须严格匹配）：
+- 目标1: `channel="qqbot", to="qqbot:c2c:<your_qq_openid>", accountId="<qqbot_AppID>"`
+- 目标2: `channel="openclaw-weixin", to="<chat_id>@im.wechat", accountId="<openclaw_weixin_accountId>"`
 
-注意：不要回复 HEARTBEAT_OK，不要有多余文字，在对话窗口输出捕获的 markdown 内容并直接调用 message 工具推送报告内容即可
+注意：不要回复 HEARTBEAT_OK。不要读取配置文件。不要多余文字。直接执行+推送+输出报告内容。
 ```
 
 ## 更新推送目标步骤

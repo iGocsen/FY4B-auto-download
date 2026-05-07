@@ -51,9 +51,13 @@ python {skills_dir}\FY4B-auto-download\scripts\fy4b_download.py
 - 如果输出包含「📡 **FY4B 云图下载报告**」则为成功，直接使用该 Markdown 内容。
 - 如果输出包含「⚠️ 解析失败」则为失败，使用错误原文作为消息。
 
-**步骤3：读取配置文件 `{skill_dir}/scripts/skill_config.json`，遍历 push_targets 数组，对每个目标调用 message 工具（channel/to/accountId 均来自配置字段）。**
+**步骤3：用 message 工具推送到以下目标（依次调用，channel/to/accountId 必须严格匹配）：**
+- 目标1: `channel="qqbot", to="qqbot:c2c:<your_qq_openid>", accountId="<qqbot_AppID>"`
+- 目标2: `channel="openclaw-weixin", to="<chat_id>@im.wechat", accountId="<openclaw_weixin_accountId>"`
 
-**注意**：不要回复 HEARTBEAT_OK，不要有多余文字，在对话窗口输出捕获的 markdown 内容并直接调用 message 工具推送报告内容即可。
+> 💡 首次设置定时任务时：读取配置文件 {skills_dir}\FY4B-auto-download\scripts\skill_config.json，遍历 push_targets 数组，将每个推送目标的 channel/to/accountId 配置字段内嵌于 cron payload 中，以便之后的任务无需读取配置文件，减少一轮 LLM 响应以降低超时风险。
+
+**注意**：不要回复 HEARTBEAT_OK。不要读取配置文件。不要多余文字。直接执行+推送+输出报告内容。
 
 ### 失败分析输出机制
 
@@ -83,7 +87,10 @@ python {skills_dir}\FY4B-auto-download\scripts\fy4b_download.py
 - schedule: `30 9,15,21 * * *`（每天 09:30 / 15:30 / 21:30，北京时间）
 - sessionTarget: `isolated`
 - payload.kind: `agentTurn`
+- payload.timeoutSeconds: `180`（原 120s 偏紧，LLM 首轮响应可达 90+ 秒）
 - delivery.mode: `none`（推送由 agentTurn 内的 message 工具完成）
+
+> ⚠️ 超时问题说明：Python 脚本本身只需 ~10 秒，但 LLM agent 首轮响应可达 90+ 秒。120s 超时下，LLM 第二轮响应（调用 message 推送）往往被 abort。已将超时提升至 180s 并精简 payload 以减少 LLM 处理时间。
 
 参考 `references/cron-setup.md` 获取详细步骤。
 
